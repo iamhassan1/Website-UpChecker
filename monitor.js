@@ -21,8 +21,8 @@ const TARGET_URLS = process.env.TARGET_URLS
 
 // 2. Email Configuration
 // Best practice: Set these in your deployment platform (e.g., Railway) Environment Variables
-const EMAIL_USER = process.env.EMAIL_USER || 'thegarbage0@gmail.com';
-const EMAIL_PASS = process.env.EMAIL_PASS || 'ufgq ivnn nokr wzeh';
+const EMAIL_USER = process.env.EMAIL_USER;
+const EMAIL_PASS = process.env.EMAIL_PASS;
 const RECIPIENTS = process.env.EMAIL_RECIPIENTS
     ? process.env.EMAIL_RECIPIENTS.split(',').map(e => e.trim())
     : ['thegarbage0@gmail.com', 'thehk12@gmail.com'];
