@@ -10,6 +10,7 @@ const http = require('http');
 // 1. Target URLs to monitor
 // You can either modify this array OR set the TARGET_URLS environment variable (comma separated)
 const DEFAULT_URLS = [
+    'https://www.google.com/',
     'https://www.digital.diplo.de/',
     'https://www.digital.diplo.de/visa',
 ];
@@ -45,17 +46,27 @@ let pendingUrls = [...TARGET_URLS];
 
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // use SSL
+    port: 587,
+    secure: false, // use STARTTLS
     auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS
     },
-    // Increase timeouts to 30s
+    // Fix for container networking issues: Force IPv4
+    defaults: {
+        family: 4 // Force IPv4
+    },
+    tls: {
+        ciphers: 'SSLv3'
+    },
+    // Debug logging to see exactly where it hangs
+    logger: true,
+    debug: true,
+
+    // Timeouts
     connectionTimeout: 30000,
     greetingTimeout: 30000,
     socketTimeout: 30000
-
 });
 
 // Helper to send email
