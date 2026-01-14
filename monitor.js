@@ -6,11 +6,13 @@ const nodemailer = require('nodemailer');
 // ==========================================
 
 // 1. Target URL to monitor
-const TARGET_URL = 'https://google.com';
+const TARGET_URL = 'https://www.digital.diplo.de/';
 
 // 2. List of email addresses to notify
 const EMAIL_LIST = [
-    'thegarbage0@gmail.com'
+    'thegarbage0@gmail.com',
+    'thehk12@gmail.com'
+
 ];
 
 // 3. Email Sender Configuration (Nodemailer)
