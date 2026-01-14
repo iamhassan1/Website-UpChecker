@@ -1,3 +1,4 @@
+require('dotenv').config();
 const axios = require('axios');
 const nodemailer = require('nodemailer');
 const http = require('http');
@@ -29,6 +30,15 @@ const transporter = nodemailer.createTransport({
     },
     logger: true, // Log SMTP exchanges
     debug: true   // Include debug info
+});
+
+// Verify connection immediately
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('❌ [SMTP] Connection Check Failed:', error);
+    } else {
+        console.log('✅ [SMTP] Connection Ready:', success);
+    }
 });
 
 async function sendEmail(subject, text) {
@@ -79,7 +89,7 @@ async function checkWebsites() {
 
             if (response.status === 200) {
                 console.log(`✅ UP: ${url}`);
-                sendEmail(`Website Up: ${url}`, `URL is reachable: ${url}`);
+                await sendEmail(`Website Up: ${url}`, `URL is reachable: ${url}`);
                 pendingUrls = pendingUrls.filter(u => u !== url);
             } else {
                 console.log(`⚠️ Status ${response.status}: ${url}`);
@@ -98,7 +108,7 @@ async function checkWebsites() {
 }
 
 // Dummy Server
-const port = 3000;
+const port = process.env.PORT || 3000;
 http.createServer((req, res) => res.end('Monitor Running')).listen(port, '0.0.0.0', () => {
     console.log(`Server listening on ${port}`);
 });
