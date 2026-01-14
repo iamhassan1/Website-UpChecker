@@ -44,12 +44,21 @@ if (!EMAIL_USER || !EMAIL_PASS) {
 // Track which sites are already UP to avoid re-checking them
 let pendingUrls = [...TARGET_URLS];
 
+// Email Configuration - Using Port 465 (SSL) is often more reliable in containers than 587
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
     auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS
-    }
+    },
+    // Force IPv4 and use simplified SSL settings
+    tls: {
+        rejectUnauthorized: false
+    },
+    connectionTimeout: 20000, // 20s
+    greetingTimeout: 20000
 });
 
 // Helper to send email
@@ -63,7 +72,6 @@ async function sendEmail(subject, text) {
 
     try {
         console.log(`📨 Attempting to send email (Background): "${subject}"...`);
-        // We do not await here to avoid blocking the main loop if SMTP is slow
         transporter.sendMail(mailOptions).then(() => {
             console.log(`📧 Email sent successfully: "${subject}"`);
         }).catch(err => {
@@ -78,10 +86,9 @@ async function startApp() {
     console.log('🚀 Process starting...');
     console.log(`Monitoring ${TARGET_URLS.length} websites:`, TARGET_URLS);
 
-    // Fire and forget - don't await this
     sendEmail(
         'Uptime Monitor Started',
-        `The monitoring process has started successfully.\n\nMonitor is running from the cloud.\n\nMonitoring:\n${TARGET_URLS.join('\n')}`
+        `Monitoring:\n${TARGET_URLS.join('\n')}`
     );
 
     // Give the container network a moment to settle
@@ -92,41 +99,40 @@ async function startApp() {
 async function checkWebsites() {
     if (pendingUrls.length === 0) {
         console.log('🎉 All websites are UP! Monitoring finished.');
-        // Optional: Keep the process alive for Railway so it doesn't restart immediately
-        // or process.exit(0) if you want it to stop.
-        // For Railway keeping it alive is usually better to avoid "Crash" detection loops if it's a Service.
         console.log('Idling...');
         return;
     }
 
-    console.log(`\n[${new Date().toLocaleTimeString()}] Checking ${pendingUrls.length} pending sites...`);
+    console.log(`\n[${new Date().toLocaleTimeString()}] Checking ${pendingUrls.length} pending sites (Parallel)...`);
 
-    // We iterate backwards or create a copy to allow removing items safely
+    // Create a copy for the loop
     const currentBatch = [...pendingUrls];
 
-    for (const url of currentBatch) {
+    // Check ALL sites in parallel
+    await Promise.all(currentBatch.map(async (url) => {
         try {
-            // Mimic a real browser to avoid being blocked
             const response = await axios.get(url, {
-                timeout: 30000, // 30s timeout
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                }
+                timeout: 30000,
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36' }
             });
 
             if (response.status === 200) {
                 console.log(`✅ UP: ${url}`);
-                await sendEmail(`Website is UP: ${url}`, `Good news! ${url} is now accessible (Status 200).`);
+                // Send email immediately
+                sendEmail(`Website is UP: ${url}`, `Good news! ${url} is now accessible (Status 200).`);
 
-                // Remove from pending list
+                // Remove from pending list (atomic filter not needed since we work on a copy, but we need to update global)
+                // We'll update the global list by filtering out THIS url
                 pendingUrls = pendingUrls.filter(u => u !== url);
             } else {
                 console.log(`⚠️ Status ${response.status}: ${url}`);
             }
         } catch (error) {
+            // Only log if it's NOT a timeout to reduce noise? OR log everything.
+            // On Railway, timeouts are common if the site blocks the IP.
             console.log(`❌ DOWN: ${url} (${error.code || error.message})`);
         }
-    }
+    }));
 
     if (pendingUrls.length > 0) {
         console.log(`Waiting ${RETRY_INTERVAL_SECONDS} seconds...`);
