@@ -44,15 +44,17 @@ if (!EMAIL_USER || !EMAIL_PASS) {
 let pendingUrls = [...TARGET_URLS];
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // use SSL
     auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS
     },
-    // Add timeouts to prevent hanging
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000
+    // Increase timeouts to 30s
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000
 
 });
 
@@ -82,7 +84,7 @@ async function startApp() {
     // Send Startup Email
     await sendEmail(
         'Uptime Monitor Started',
-        `The monitoring process has started successfully.\n\nMonitoring the following sites:\n${TARGET_URLS.join('\n')}\n\nWe will notify you when they come back up.`
+        `The monitoring process has started successfully.\n\nMonitor is running from the cloud.\n\nMonitoring:\n${TARGET_URLS.join('\n')}`
     );
 
     checkWebsites();
@@ -92,7 +94,7 @@ async function checkWebsites() {
     if (pendingUrls.length === 0) {
         console.log('🎉 All websites are UP! Monitoring finished.');
         // Optional: Keep the process alive for Railway so it doesn't restart immediately
-        // or process.exit(0) if you want it to stop. 
+        // or process.exit(0) if you want it to stop.
         // For Railway keeping it alive is usually better to avoid "Crash" detection loops if it's a Service.
         console.log('Idling...');
         return;
@@ -105,7 +107,14 @@ async function checkWebsites() {
 
     for (const url of currentBatch) {
         try {
-            const response = await axios.get(url, { timeout: 10000 }); // 10s timeout
+            // Mimic a real browser to avoid being blocked
+            const response = await axios.get(url, {
+                timeout: 30000, // 30s timeout
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                }
+            });
+
             if (response.status === 200) {
                 console.log(`✅ UP: ${url}`);
                 await sendEmail(`Website is UP: ${url}`, `Good news! ${url} is now accessible (Status 200).`);
