@@ -45,28 +45,11 @@ if (!EMAIL_USER || !EMAIL_PASS) {
 let pendingUrls = [...TARGET_URLS];
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // use STARTTLS
+    service: 'gmail',
     auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS
-    },
-    // Fix for container networking issues: Force IPv4
-    defaults: {
-        family: 4 // Force IPv4
-    },
-    tls: {
-        ciphers: 'SSLv3'
-    },
-    // Debug logging to see exactly where it hangs
-    logger: true,
-    debug: true,
-
-    // Timeouts
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000
+    }
 });
 
 // Helper to send email
@@ -79,26 +62,31 @@ async function sendEmail(subject, text) {
     };
 
     try {
-        console.log(`📨 Attempting to send email: "${subject}"...`);
-        await transporter.sendMail(mailOptions);
-        console.log(`📧 Email sent successfully: "${subject}"`);
+        console.log(`📨 Attempting to send email (Background): "${subject}"...`);
+        // We do not await here to avoid blocking the main loop if SMTP is slow
+        transporter.sendMail(mailOptions).then(() => {
+            console.log(`📧 Email sent successfully: "${subject}"`);
+        }).catch(err => {
+            console.error(`❌ Error sending email "${subject}":`, err.message);
+        });
     } catch (error) {
-        console.error('❌ Error sending email:', error.message);
+        console.error('❌ Error preparing email:', error.message);
     }
 }
 
 async function startApp() {
     console.log('🚀 Process starting...');
     console.log(`Monitoring ${TARGET_URLS.length} websites:`, TARGET_URLS);
-    console.log(`Retry Interval: ${RETRY_INTERVAL_SECONDS} seconds`);
 
-    // Send Startup Email
-    await sendEmail(
+    // Fire and forget - don't await this
+    sendEmail(
         'Uptime Monitor Started',
         `The monitoring process has started successfully.\n\nMonitor is running from the cloud.\n\nMonitoring:\n${TARGET_URLS.join('\n')}`
     );
 
-    checkWebsites();
+    // Give the container network a moment to settle
+    console.log('⏳ Waiting 5 seconds before first check...');
+    setTimeout(checkWebsites, 5000);
 }
 
 async function checkWebsites() {
