@@ -33,6 +33,13 @@ const RETRY_INTERVAL_SECONDS = process.env.RETRY_INTERVAL_SECONDS || 20;
 
 // ==========================================
 
+// Validate Critical Environment Variables
+if (!EMAIL_USER || !EMAIL_PASS) {
+    console.error('❌ CRITICAL ERROR: EMAIL_USER or EMAIL_PASS environment variables are missing.');
+    console.error('Please configure them in your Railway project settings.');
+    process.exit(1);
+}
+
 // Track which sites are already UP to avoid re-checking them
 let pendingUrls = [...TARGET_URLS];
 
@@ -41,7 +48,12 @@ const transporter = nodemailer.createTransport({
     auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASS
-    }
+    },
+    // Add timeouts to prevent hanging
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000
+
 });
 
 // Helper to send email
@@ -54,15 +66,16 @@ async function sendEmail(subject, text) {
     };
 
     try {
+        console.log(`📨 Attempting to send email: "${subject}"...`);
         await transporter.sendMail(mailOptions);
-        console.log(`📧 Email sent: "${subject}"`);
+        console.log(`📧 Email sent successfully: "${subject}"`);
     } catch (error) {
-        console.error('❌ Error sending email:', error);
+        console.error('❌ Error sending email:', error.message);
     }
 }
 
 async function startApp() {
-    console.log('🚀 process started...');
+    console.log('🚀 Process starting...');
     console.log(`Monitoring ${TARGET_URLS.length} websites:`, TARGET_URLS);
     console.log(`Retry Interval: ${RETRY_INTERVAL_SECONDS} seconds`);
 
@@ -126,8 +139,8 @@ const server = http.createServer((req, res) => {
     res.end(`Uptime Monitor Running.\nPending Sites: ${pendingUrls.length}`);
 });
 
-server.listen(PORT, () => {
-    console.log(`Dummy HTTP server listening on port ${PORT} (for Railway health checks)`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Dummy HTTP server listening on port ${PORT} (0.0.0.0)`);
 });
 
 // Start the Monitor
