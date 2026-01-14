@@ -62,7 +62,7 @@ async function sendSuccessEmails() {
     console.log('Attempting to send notification emails...');
 
     const mailOptions = {
-        from: '"Uptime Monitor" <no-reply@example.com>', // Sender address
+        from: '"Uptime Monitor" <thegarbage0@gmail.com>', // Sender address - Must match authenticated user to avoid spam
         to: EMAIL_LIST.join(', '), // List of receivers
         subject: `Website is UP: ${TARGET_URL}`,
         text: `Good news! The website ${TARGET_URL} is now reachable and returned a 200 OK status.`
